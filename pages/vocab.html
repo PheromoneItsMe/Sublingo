@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>SubLingo — мои слова</title><link rel="stylesheet" href="pages.css"><link rel="icon" href="../icons/icon32.png">
+<style>
+  .tr-in { width: 100%; background: transparent; border: 1px solid transparent; padding: 3px 6px; color: var(--fg); font: inherit; border-radius: 6px; }
+  .tr-in.mut { color: var(--mut); font-size: 12px; }
+  .tr-in:focus { outline: none; border-color: var(--acc); background: var(--bg3); }
+  .tr-in:hover { border-color: #36363c; }
+  .ctx { color: #c4c4c8; font-size: 13px; max-width: 420px; }
+  .ctx b { color: #fdba74; font-weight: 600; }
+  .ctx .mut { font-size: 12px; }
+  .w { font-size: 16px; font-weight: 600; }
+  td.chk, th.chk { width: 28px; }
+  .bulk { position: sticky; top: 57px; z-index: 5; background: #241a12; border: 1px solid var(--acc); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+  th { top: 57px; }
+  .tags span { cursor: pointer; opacity: .3; }
+  .tags span.on { opacity: 1; }
+</style></head>
+<body>
+<div class="top"><a class="logo" href="#"><img src="../icons/icon48.png" alt="">SubLingo</a>
+  <nav class="nav"><a href="vocab.html" class="on">Мои слова</a><a href="review.html">Повторение</a><a href="reader.html">Чтение</a><a href="player.html">Видеофайл</a><a href="options.html">Настройки</a></nav></div>
+<div class="wrap" style="max-width:1300px">
+  <div class="row" style="margin-bottom:12px">
+    <button class="chip on" data-kind="word">Слова <span id="nW"></span></button>
+    <button class="chip" data-kind="phrase">Фразы <span id="nP"></span></button>
+    <span class="grow"></span>
+    <button class="btn" id="addList">+ Добавить списком</button>
+    <select id="exportFmt"><option value="anki">Anki (TSV)</option><option value="csv">CSV (Excel)</option><option value="json">JSON</option><option value="print">Печать / PDF</option></select>
+    <label class="mut"><input type="checkbox" id="onlyNew"> только новые с прошлого экспорта</label>
+    <button class="btn primary" id="export">Экспорт</button>
+  </div>
+  <div class="card row" style="padding:10px 14px">
+    <input type="search" id="q" placeholder="Поиск…" style="width:220px">
+    <select id="fStatus"><option value="">Все статусы</option><option value="learning">Учу</option><option value="known">Знаю</option><option value="ignored">Не учить</option><option value="none">Без статуса (только метки)</option><option value="due">К повторению сейчас</option></select>
+    <select id="fTag"><option value="">Все метки</option></select>
+    <select id="sort"><option value="recent">Сначала новые</option><option value="alpha">По алфавиту</option><option value="rank">По частоте</option><option value="due">По дате повторения</option></select>
+    <span class="grow"></span><span class="mut" id="count"></span>
+  </div>
+  <div class="bulk row hidden" id="bulk">
+    <b id="selN"></b><span class="mut">выбрано:</span>
+    <button class="btn sm" data-bulk="learning">→ Учу</button>
+    <button class="btn sm" data-bulk="known">→ Знаю</button>
+    <button class="btn sm" data-bulk="ignored">→ Не учить</button>
+    <select id="bulkTag" class="btn sm"><option value="">+ метка…</option></select>
+    <button class="btn sm" data-bulk="clearTags">Снять метки</button>
+    <button class="btn sm" data-bulk="resetSrs">Сбросить повторения</button>
+    <span class="grow"></span>
+    <button class="btn sm danger" data-bulk="remove">Удалить</button>
+  </div>
+  <div id="addBox" class="card hidden">
+    <h3 style="margin-top:0">Добавить слова списком</h3>
+    <div class="mut">По одному на строку: <code>слово</code> или <code>слово — перевод</code>. Слова попадут в «Учу».</div>
+    <textarea id="addText" rows="6" style="margin-top:8px" placeholder="serendipity — счастливая случайность&#10;to give up&#10;reluctant"></textarea>
+    <div class="row" style="margin-top:8px"><button class="btn primary" id="addGo">Добавить</button><span class="mut" id="addOut"></span></div>
+  </div>
+  <table><thead><tr><th class="chk"><input type="checkbox" id="all"></th><th>Слово</th><th>Перевод</th><th>Контекст</th><th>Статус</th><th>Метки</th><th>Повтор</th></tr></thead><tbody id="tb"></tbody></table>
+  <div class="row" style="justify-content:center;margin-top:14px"><button class="btn hidden" id="more">Показать ещё</button></div>
+  <div class="empty hidden" id="empty">Пока пусто. Нажмите на слово в субтитрах и выберите «★ Учу».</div>
+</div>
+<script src="../common/freq.js"></script>
+<script src="../common/lib.js"></script>
+<script src="../common/srs.js"></script>
+<script src="../content/ui-css.js"></script>
+<script src="../content/dict.js"></script>
+<script src="vocab.js"></script>
+</body></html>

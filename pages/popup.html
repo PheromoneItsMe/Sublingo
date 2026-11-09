@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><link rel="stylesheet" href="pages.css">
+<style>
+  body { width: 340px; }
+  .p { padding: 14px 16px; }
+  .head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--bg2); }
+  .head img { width: 24px; height: 24px; }
+  .head b { color: var(--acc); font-size: 16px; flex: 1; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .grid .btn { text-align: left; padding: 10px 12px; }
+  .due { font-size: 13px; color: var(--mut); margin-top: 4px; }
+  label.opt { padding: 5px 0; }
+  select { width: 100%; }
+</style></head>
+<body>
+  <div class="head"><img src="../icons/icon48.png" alt=""><b>SubLingo</b><input type="checkbox" id="enabled" title="Включить / выключить"></div>
+  <div class="p">
+    <label class="opt"><span>Перевод на</span><select id="targetLang" style="width:150px"></select></label>
+    <label class="opt"><span>Источник перевода</span><select id="translationMode" style="width:150px">
+      <option value="auto">Авто</option><option value="human">Человеческий</option><option value="machine">Google</option><option value="youtube">YouTube авто</option><option value="off">Без перевода</option></select></label>
+    <label class="opt"><span>Автопауза после реплики</span><input type="checkbox" id="autoPause"></label>
+    <label class="opt"><span>Размывать перевод</span><input type="checkbox" id="blurTranslation"></label>
+    <label class="opt"><span>Пауза при наведении на субтитры</span><input type="checkbox" id="pauseOnHover"></label>
+    <label class="opt"><span>Панель субтитров</span><input type="checkbox" id="panelOpen"></label>
+    <div class="grid">
+      <button class="btn primary" data-open="review.html">🧠 Повторение<div class="due" id="due" style="color:#3a1a00"></div></button>
+      <button class="btn" data-open="vocab.html">📚 Мои слова<div class="due" id="cnt"></div></button>
+      <button class="btn" data-open="reader.html">📖 Режим чтения<div class="due">свой текст / статьи</div></button>
+      <button class="btn" data-open="player.html">🎬 Видеофайл<div class="due">свой фильм + .srt</div></button>
+    </div>
+    <button class="btn" id="genericOn" style="width:100%;margin-top:8px">🎞 Включить субтитры на видео в этой вкладке</button>
+    <div class="row" style="margin-top:12px"><button class="btn sm" data-open="options.html">⚙ Все настройки</button><span class="grow"></span><span class="mut">Alt+клик — перевод на любом сайте</span></div>
+  </div>
+<script src="../common/lib.js"></script>
+<script src="../common/srs.js"></script>
+<script src="popup.js"></script>
+</body></html>

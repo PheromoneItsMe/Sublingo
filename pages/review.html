@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>SubLingo — повторение</title><link rel="stylesheet" href="pages.css"><link rel="icon" href="../icons/icon32.png">
+<style>
+  .fc { max-width: 720px; margin: 0 auto; background: var(--bg2); border: 1px solid var(--line); border-radius: 16px; padding: 28px 30px; min-height: 340px; display: flex; flex-direction: column; }
+  .fc .mode { color: var(--mut); font-size: 12px; text-transform: uppercase; letter-spacing: .7px; display: flex; gap: 10px; }
+  .fc .front { font-size: 34px; font-weight: 700; color: #fff; margin: 18px 0 6px; text-align: center; }
+  .fc .front.phrase { font-size: 24px; font-weight: 500; line-height: 1.4; }
+  .fc .sent { font-size: 19px; line-height: 1.55; text-align: center; color: #e4e4e7; margin: 12px 0; }
+  .fc .sent b { color: #fdba74; }
+  .fc .gap { display: inline-block; min-width: 90px; border-bottom: 2px solid var(--acc); }
+  .fc .ans { border-top: 1px dashed #333; margin-top: 16px; padding-top: 14px; text-align: center; }
+  .fc .ans .tr { font-size: 22px; color: #fdba74; font-weight: 600; }
+  .fc .ans .ctr { color: var(--mut); margin-top: 6px; }
+  .fc .grow { flex: 1; }
+  .grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
+  .grades .btn { padding: 12px 6px; font-weight: 600; }
+  .grades .btn small { display: block; font-weight: 400; color: var(--mut); font-size: 12px; }
+  .g0 { border-color: #7f1d1d !important; } .g1 { border-color: #78350f !important; } .g2 { border-color: #14532d !important; } .g3 { border-color: #1e3a8a !important; }
+  .progress { height: 6px; background: #27272a; border-radius: 4px; overflow: hidden; max-width: 720px; margin: 0 auto 14px; }
+  .progress i { display: block; height: 100%; background: var(--acc); width: 0; transition: width .3s; }
+  .cloze-in { font-size: 20px; text-align: center; width: 260px; }
+  .ok { color: #4ade80; } .bad { color: #f87171; }
+  .center { text-align: center; }
+  .src { font-size: 12px; color: var(--mut); text-align: center; margin-top: 8px; }
+</style></head>
+<body>
+<div class="top"><a class="logo" href="#"><img src="../icons/icon48.png" alt="">SubLingo</a>
+  <nav class="nav"><a href="vocab.html">Мои слова</a><a href="review.html" class="on">Повторение</a><a href="reader.html">Чтение</a><a href="player.html">Видеофайл</a><a href="options.html">Настройки</a></nav></div>
+<div class="wrap">
+  <div id="home">
+    <div class="row" id="stats"></div>
+    <div class="card" style="margin-top:14px">
+      <div class="row"><h2 style="margin:0">Сессия</h2><span class="grow"></span>
+        <label class="mut">Карточек <input type="number" id="size" style="width:70px"></label>
+        <label class="mut">Новых % <input type="number" id="newp" style="width:70px"></label></div>
+      <div class="row" style="margin-top:10px" id="modes"></div>
+      <div class="row" style="margin-top:14px"><button class="btn primary" id="start" style="padding:10px 24px;font-size:16px">Начать</button><span class="mut" id="startInfo"></span></div>
+    </div>
+    <div class="card"><h3 style="margin-top:0">Активность за 30 дней</h3><div class="bars" id="chart"></div><div class="mut" id="chartInfo" style="margin-top:6px"></div></div>
+  </div>
+  <div id="session" class="hidden">
+    <div class="progress"><i id="prog"></i></div>
+    <div class="fc" id="card"></div>
+    <div class="center mut" style="margin-top:12px"><span class="kbd">Пробел</span> показать ответ · <span class="kbd">1</span>–<span class="kbd">4</span> оценка · <span class="kbd">R</span> озвучить · <button class="btn sm" id="quit">Завершить</button></div>
+  </div>
+</div>
+<script src="../common/freq.js"></script>
+<script src="../common/lib.js"></script>
+<script src="../common/srs.js"></script>
+<script src="../content/ui-css.js"></script>
+<script src="../content/dict.js"></script>
+<script src="review.js"></script>
+</body></html>

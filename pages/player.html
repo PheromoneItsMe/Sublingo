@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>SubLingo — видеофайл</title><link rel="stylesheet" href="pages.css"><link rel="icon" href="../icons/icon32.png">
+<style>
+  #stage { position: relative; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; max-height: calc(100vh - 210px); margin: 0 auto; }
+  #stage video { width: 100%; height: 100%; display: block; background: #000; }
+  .drop { border: 2px dashed #3f3f46; border-radius: 12px; padding: 28px; text-align: center; color: var(--mut); }
+  .drop.over { border-color: var(--acc); color: #fff; }
+  body.withpanel .wrap { margin-right: var(--pw, 400px); }
+</style></head>
+<body>
+<div class="top"><a class="logo" href="#"><img src="../icons/icon48.png" alt="">SubLingo</a>
+  <nav class="nav"><a href="vocab.html">Мои слова</a><a href="review.html">Повторение</a><a href="reader.html">Чтение</a><a href="player.html" class="on">Видеофайл</a><a href="options.html">Настройки</a></nav></div>
+<div class="wrap" style="max-width:1400px">
+  <div class="card drop" id="drop">
+    <div style="font-size:16px;color:#fff;margin-bottom:8px">Перетащите сюда видео и субтитры (.srt / .vtt) или выберите файлы</div>
+    <div class="row" style="justify-content:center">
+      <label class="btn primary">🎬 Видео / аудио<input type="file" id="fVideo" accept="video/*,audio/*,.mkv" hidden></label>
+      <label class="btn">Субтитры (английские)<input type="file" id="fSub" accept=".srt,.vtt,.ttml,.xml,.dfxp,text/vtt" hidden></label>
+      <label class="btn">Перевод (необязательно)<input type="file" id="fTr" accept=".srt,.vtt,.ttml,.xml,.dfxp" hidden></label>
+      <input type="url" id="vUrl" placeholder="или ссылка на .mp4" style="width:240px"><button class="btn" id="vGo">▶</button>
+    </div>
+    <div class="mut" id="info" style="margin-top:10px">Файлы не покидают компьютер — всё воспроизводится локально.</div>
+  </div>
+  <div id="stage" class="hidden"><video id="vid" controls></video></div>
+</div>
+<script src="../common/freq.js"></script>
+<script src="../common/lib.js"></script>
+<script src="../common/srs.js"></script>
+<script src="../content/ui-css.js"></script>
+<script src="../content/dict.js"></script>
+<script src="../content/core.js"></script>
+<script src="player.js"></script>
+</body></html>

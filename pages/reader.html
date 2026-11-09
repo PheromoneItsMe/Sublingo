@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>SubLingo — режим чтения</title><link rel="stylesheet" href="pages.css"><link rel="icon" href="../icons/icon32.png">
+<style>
+  .layout { display: grid; grid-template-columns: 270px 1fr 300px; gap: 16px; max-width: 1500px; margin: 0 auto; padding: 16px 20px 60px; }
+  @media (max-width: 1200px) { .layout { grid-template-columns: 230px 1fr; } .side2 { display: none; } }
+  .lib { position: sticky; top: 74px; max-height: calc(100vh - 90px); overflow: auto; }
+  .li { padding: 8px 10px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  .li:hover { background: var(--bg3); }
+  .li.on { border-color: var(--acc); background: #1f1813; }
+  .li b { display: block; font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .li span { font-size: 12px; color: var(--mut); }
+  .reader { font-size: 20px; line-height: 1.75; color: #ececef; font-family: Georgia, "Times New Roman", serif; }
+  .reader p { margin: 0 0 1em; }
+  .reader h1 { font-family: "Segoe UI", system-ui, sans-serif; font-size: 28px; margin-bottom: 14px; }
+  .snt { border-radius: 4px; position: relative; }
+  .snt:hover { background: rgba(255,255,255,.035); }
+  .snt.speaking { background: rgba(249,115,22,.18); }
+  .snt .st { display: none; position: absolute; top: -26px; left: 0; z-index: 3; background: #222226; border: 1px solid #36363c; border-radius: 8px; padding: 1px 3px; white-space: nowrap; font-family: "Segoe UI", system-ui, sans-serif; }
+  .snt:hover .st { display: inline-flex; }
+  .st button { background: none; border: 0; color: #ddd; font-size: 13px; padding: 2px 6px; cursor: pointer; border-radius: 6px; }
+  .st button:hover { background: #333; }
+  .tr { display: block; font-family: "Segoe UI", system-ui, sans-serif; font-size: 15px; color: #a1a1aa; line-height: 1.45; margin: 2px 0 6px; border-left: 3px solid #3f3f46; padding-left: 10px; }
+  .side2 .card { position: sticky; top: 74px; max-height: calc(100vh - 90px); overflow: auto; }
+  .wl { display: flex; gap: 6px; align-items: center; padding: 3px 0; font-size: 14px; }
+  .wl .c { color: var(--mut); font-size: 12px; margin-left: auto; }
+  .covbar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: #27272a; margin: 6px 0; }
+  .covbar i { height: 100%; }
+</style></head>
+<body>
+<div class="top"><a class="logo" href="#"><img src="../icons/icon48.png" alt="">SubLingo</a>
+  <nav class="nav"><a href="vocab.html">Мои слова</a><a href="review.html">Повторение</a><a href="reader.html" class="on">Чтение</a><a href="player.html">Видеофайл</a><a href="options.html">Настройки</a></nav></div>
+<div class="layout">
+  <div class="lib card">
+    <button class="btn primary" id="new" style="width:100%">+ Новый текст</button>
+    <div class="row" style="margin:8px 0"><input type="url" id="url" placeholder="или ссылка на статью" style="flex:1;min-width:0"><button class="btn sm" id="fetch">↓</button></div>
+    <label class="btn sm" style="display:block;text-align:center">Открыть файл (.txt, .srt, .vtt)<input type="file" id="file" accept=".txt,.srt,.vtt,.md,text/plain" hidden></label>
+    <h3>Мои тексты</h3>
+    <div id="list"></div>
+  </div>
+  <div>
+    <div id="editor" class="card hidden">
+      <input type="text" id="title" placeholder="Название" style="width:100%;font-size:18px;margin-bottom:10px">
+      <textarea id="body" rows="18" placeholder="Вставьте сюда английский текст: статью, главу книги, текст песни, субтитры…"></textarea>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="save">Сохранить и читать</button><button class="btn" id="cancel">Отмена</button><span class="grow"></span><button class="btn danger" id="del">Удалить</button></div>
+    </div>
+    <div id="view" class="hidden">
+      <div class="row card" style="padding:8px 12px">
+        <button class="btn sm" id="edit">✎ Править</button>
+        <button class="btn sm" id="trAll">文A Перевести всё</button>
+        <button class="btn sm" id="readAloud">▶ Читать вслух</button>
+        <span class="grow"></span>
+        <button class="btn sm" id="fsm">A−</button><button class="btn sm" id="fsp">A+</button>
+        <a class="btn sm hidden" id="srcLink" target="_blank">↗ источник</a>
+      </div>
+      <div class="card reader" id="reader"></div>
+    </div>
+    <div id="blank" class="card empty">Выберите текст слева или создайте новый. <br>Подсказка: на любом сайте ПКМ → «SubLingo: импортировать страницу в режим чтения».</div>
+  </div>
+  <div class="side2"><div class="card" id="side"><div class="mut">Статистика текста появится здесь.</div></div></div>
+</div>
+<script src="../common/freq.js"></script>
+<script src="../common/lib.js"></script>
+<script src="../common/srs.js"></script>
+<script src="../content/ui-css.js"></script>
+<script src="../content/dict.js"></script>
+<script src="reader.js"></script>
+</body></html>

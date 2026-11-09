@@ -1,0 +1,28 @@
+# Packed builds and signing keys — never commit the .pem
+*.zip
+*.crx
+*.pem
+dist/
+build/
+
+# Dependencies / tooling (in case you add any later)
+node_modules/
+.npm/
+*.log
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local notes and backups
+*.bak
+sublingo-backup-*.json
+sublingo-anki-*.txt
+sublingo-*.csv

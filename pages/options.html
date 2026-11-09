@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>SubLingo — настройки</title><link rel="stylesheet" href="pages.css"><link rel="icon" href="../icons/icon32.png">
+<style>
+  .lvl { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+  .lvl:hover { border-color: var(--acc); background: #1b1714; }
+  .lvl.on { border-color: var(--acc); background: #241a12; }
+  .lvl b { width: 90px; flex: none; color: var(--acc2); }
+  .lvl span { color: #d4d4d8; }
+  .welcome { border-color: var(--acc); }
+  .welcome li { margin: 4px 0; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+</style></head>
+<body>
+<div class="top"><a class="logo" href="#"><img src="../icons/icon48.png" alt="">SubLingo</a>
+  <nav class="nav"><a href="vocab.html">Мои слова</a><a href="review.html">Повторение</a><a href="reader.html">Чтение</a><a href="player.html">Видеофайл</a><a href="options.html" class="on">Настройки</a></nav></div>
+<div class="wrap">
+  <div class="card welcome hidden" id="welcome">
+    <h2 style="margin-top:0">Добро пожаловать в SubLingo 👋</h2>
+    <ol>
+      <li>Откройте любое видео на <b>YouTube</b> или фильм на <b>Netflix</b> — появятся двойные субтитры и панель со всеми репликами.</li>
+      <li><b>Нажмите на слово</b> — откроется словарь. Кнопка <b>★ Учу</b> добавит слово в карточки, <b>✓ Знаю</b> — уберёт подсветку.</li>
+      <li><b>ПКМ по слову</b> — быстро отметить «учу». Выделите несколько слов — перевод фразы.</li>
+      <li>Клавиши: <span class="kbd">A</span> назад, <span class="kbd">S</span> повтор, <span class="kbd">D</span> вперёд, <span class="kbd">Q</span> автопауза, <span class="kbd">E</span> перевод.</li>
+      <li>На любом сайте: <b>Alt + клик</b> по слову или выделите текст → «Перевести».</li>
+      <li>Ниже задайте <b>уровень словаря</b>, чтобы подсвечивались только незнакомые слова.</li>
+    </ol>
+  </div>
+  <div id="sections"></div>
+
+  <div class="card" id="level">
+    <h2 style="margin-top:0">Уровень словаря</h2>
+    <div class="mut">Нажмите на <b>последнюю строку, где вы знаете почти все слова</b>. Слова до этого уровня будут считаться известными, следующие — подсвечиваться как рекомендуемые к изучению.</div>
+    <div id="levels" style="margin-top:10px"></div>
+    <div class="row" style="margin-top:8px"><span>Текущий уровень:</span><b id="lvlNow"></b><span class="grow"></span><button class="btn sm" id="lvlZero">Я только начинаю (0)</button></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Данные</h2>
+    <div class="row">
+      <button class="btn" id="backup">⬇ Резервная копия (JSON)</button>
+      <label class="btn">⬆ Восстановить из файла<input type="file" id="restore" accept=".json,application/json" hidden></label>
+      <span class="grow"></span>
+      <button class="btn danger" id="resetSettings">Сбросить настройки</button>
+      <button class="btn danger" id="wipe">Удалить все данные</button>
+    </div>
+    <div class="mut" id="dataInfo" style="margin-top:8px"></div>
+  </div>
+</div>
+<script src="../common/freq.js"></script>
+<script src="../common/lib.js"></script>
+<script src="../common/srs.js"></script>
+<script src="options.js"></script>
+</body></html>
