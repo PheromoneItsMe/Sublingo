@@ -124,6 +124,7 @@
 
   // word clicks and selection in reader
   const rd = $('reader');
+  if (SL.hoverTip) SL.hoverTip(rd, { skip: () => !!(multi && !multi.done) });
   rd.addEventListener('click', async (e) => {
     const b = e.target.closest('.st button');
     const snt = e.target.closest('.snt');

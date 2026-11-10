@@ -14,17 +14,20 @@
   th { top: 57px; }
   .tags span { cursor: pointer; opacity: .3; }
   .tags span.on { opacity: 1; }
+  .clipbox { position: fixed; right: 20px; bottom: 20px; width: 380px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; z-index: 50; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+  .clipbox img { width: 100%; border-radius: 8px; display: block; margin-top: 6px; }
+  .clipbox audio { width: 100%; margin-top: 6px; }
 </style></head>
 <body>
 <div class="top"><a class="logo" href="#"><img src="../icons/icon48.png" alt="">SubLingo</a>
-  <nav class="nav"><a href="vocab.html" class="on">Мои слова</a><a href="review.html">Повторение</a><a href="reader.html">Чтение</a><a href="player.html">Видеофайл</a><a href="options.html">Настройки</a></nav></div>
+  <nav class="nav"><a href="vocab.html" class="on">Мои слова</a><a href="review.html">Повторение</a><a href="reader.html">Чтение</a><a href="player.html">Видеофайл</a><a href="stats.html">Статистика</a><a href="options.html">Настройки</a></nav></div>
 <div class="wrap" style="max-width:1300px">
   <div class="row" style="margin-bottom:12px">
     <button class="chip on" data-kind="word">Слова <span id="nW"></span></button>
     <button class="chip" data-kind="phrase">Фразы <span id="nP"></span></button>
     <span class="grow"></span>
     <button class="btn" id="addList">+ Добавить списком</button>
-    <select id="exportFmt"><option value="anki">Anki (TSV)</option><option value="csv">CSV (Excel)</option><option value="json">JSON</option><option value="print">Печать / PDF</option></select>
+    <select id="exportFmt"><option value="anki">Anki (с голосом и кадрами)</option><option value="csv">CSV (Excel)</option><option value="json">JSON</option><option value="print">Печать / PDF</option></select>
     <label class="mut"><input type="checkbox" id="onlyNew"> только новые с прошлого экспорта</label>
     <button class="btn primary" id="export">Экспорт</button>
   </div>
@@ -59,6 +62,7 @@
 <script src="../common/freq.js"></script>
 <script src="../common/lib.js"></script>
 <script src="../common/srs.js"></script>
+<script src="../common/media.js"></script>
 <script src="../content/ui-css.js"></script>
 <script src="../content/dict.js"></script>
 <script src="vocab.js"></script>

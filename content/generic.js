@@ -323,7 +323,7 @@
       if (best) useSource(best.id); else { noSubsStatus(); autoGrab(); }
       SL.onSettings(SL.debounce((s) => { if (player && cur && (s.targetLang !== loadTrans._tl || s.translationMode !== loadTrans._mode)) { loadTrans._tl = s.targetLang; loadTrans._mode = s.translationMode; loadTrans(); } }, 300));
       loadTrans._tl = SL.settings.targetLang; loadTrans._mode = SL.settings.translationMode;
-    } catch (e) { console.warn('SubLingo: activation failed', e); }
+    } catch (e) { if (SL.checkAlive()) console.warn('SubLingo: activation failed', e); }
     activating = false;
   }
 
@@ -337,6 +337,7 @@
   let tick = 0;
   setInterval(async () => {
     await ready;
+    if (!SL.checkAlive() || !SL.settings.enabled) return;
     const v = findVideo();
     if (v && v !== video) { video = v; scanVideo(v); if (player) { player.shown = -2; player._placeHosts(); } }
     if (!video) return;

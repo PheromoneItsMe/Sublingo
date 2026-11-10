@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SubLingo — английский по фильмам и YouTube",
   "short_name": "SubLingo",
-  "version": "1.6.3",
+  "version": "1.11.1",
   "author": "pheromone",
   "description": "Двойные субтитры на YouTube и Netflix, словарь по клику, сохранение слов, карточки с интервальным повторением, режим чтения.",
   "icons": {
@@ -19,6 +19,9 @@
   "background": {
     "service_worker": "background.js"
   },
+  "web_accessible_resources": [
+    { "resources": ["content/clip-worklet.js"], "matches": ["<all_urls>"] }
+  ],
   "permissions": [
     "storage",
     "unlimitedStorage",
@@ -52,8 +55,10 @@
       "js": [
         "common/freq.js",
         "common/lib.js",
+        "common/phrases.js",
         "content/ui-css.js",
         "content/dict.js",
+        "content/clip.js",
         "content/core.js",
         "content/web.js",
         "content/yt.js"
@@ -78,8 +83,10 @@
       "js": [
         "common/freq.js",
         "common/lib.js",
+        "common/phrases.js",
         "content/ui-css.js",
         "content/dict.js",
+        "content/clip.js",
         "content/core.js",
         "content/web.js",
         "content/nf.js"

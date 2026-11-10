@@ -22,10 +22,11 @@
   .ok { color: #4ade80; } .bad { color: #f87171; }
   .center { text-align: center; }
   .src { font-size: 12px; color: var(--mut); text-align: center; margin-top: 8px; }
+  .fc .frame { width: 100%; max-height: 260px; object-fit: cover; border-radius: 10px; margin: -6px 0 12px; opacity: .92; }
 </style></head>
 <body>
 <div class="top"><a class="logo" href="#"><img src="../icons/icon48.png" alt="">SubLingo</a>
-  <nav class="nav"><a href="vocab.html">Мои слова</a><a href="review.html" class="on">Повторение</a><a href="reader.html">Чтение</a><a href="player.html">Видеофайл</a><a href="options.html">Настройки</a></nav></div>
+  <nav class="nav"><a href="vocab.html">Мои слова</a><a href="review.html" class="on">Повторение</a><a href="reader.html">Чтение</a><a href="player.html">Видеофайл</a><a href="stats.html">Статистика</a><a href="options.html">Настройки</a></nav></div>
 <div class="wrap">
   <div id="home">
     <div class="row" id="stats"></div>
@@ -47,6 +48,7 @@
 <script src="../common/freq.js"></script>
 <script src="../common/lib.js"></script>
 <script src="../common/srs.js"></script>
+<script src="../common/media.js"></script>
 <script src="../content/ui-css.js"></script>
 <script src="../content/dict.js"></script>
 <script src="review.js"></script>

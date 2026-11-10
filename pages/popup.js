@@ -9,7 +9,7 @@
     el.checked = !!S[k];
     el.addEventListener('change', () => SL.saveSettings({ [k]: el.checked }));
   });
-  ['targetLang', 'translationMode'].forEach(k => {
+  ['targetLang', 'translationMode', 'ttsMode'].forEach(k => {
     const el = document.getElementById(k);
     el.value = S[k];
     el.addEventListener('change', () => SL.saveSettings({ [k]: el.value }));

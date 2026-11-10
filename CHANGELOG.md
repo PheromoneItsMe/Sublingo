@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.11.1
+
+New:
+- **Pause before a line.** The video stops just before a line is spoken and shows it in advance. You read it first, then press Space or `D` to hear it. It can run before every line or only before hard ones (`P`).
+- **Auto-pause on hard lines only.** Besides pausing after every line, auto-pause can stop only where a line has words you don't know yet (`Q` cycles off / every line / hard lines). Hard lines are marked in the line list.
+- **Translation hidden until hover** (`T`), in the subtitles and in the line list.
+- **Phrasal verbs and set expressions** (about 270, with Russian meanings) are underlined as one unit. Hover and click give the meaning of the whole expression, and each word can still be opened separately (`G`).
+- **Video recap.** At the end of a video you get the words you're learning that came up, the words you looked up, and the expressions from the video. It's also in the ⋯ menu.
+- **Quick appearance settings** in the ⋯ menu: subtitle size, translation size and background, remembered per site.
+- **Collapsible control bar** at the top of the line list.
+
+Improved:
+- The ⋯ menu is easier to use. It doesn't close on the way from the button, stays still while you adjust sizes, and is never covered by the player.
+- Faster redrawing of subtitles and the line list. Word forms, line parsing and expressions are now cached.
+- Safer handling of data from websites, stricter limits on what pages can ask the extension to do, and cleanup of voice clips that are no longer used.
+- Voice recording uses the modern audio API. After an extension update, old tabs quietly ask to be refreshed instead of throwing errors.
+
+## 1.8
+- Subtitles can be dragged anywhere over the video with the ✥ handle or by the line's background. The position is remembered separately for YouTube, Netflix and each site. Double-click ✥ or use "⋯ → Вернуть субтитры вниз" to reset.
+- The stats page now shows proper line charts with axes, a grid and hover values.
+
+## 1.7.1
+- Synthetic voice setting: off, button only (the default), or automatic. With the voice off, review skips listening cards that have no real audio.
+- When no voice is chosen, the most natural one available is used instead of the system default.
+
+## 1.7
+- Hover translation: a small tooltip above a word, with the full card on click.
+- Saved words and phrases keep the real audio of the line and a still frame from the video. Review plays the actor's voice, and the Anki export becomes a ZIP with sound and images.
+- New stats page: listening time, lines and words heard, lookups, words that have truly stuck, and words you hear often but don't study yet. No streaks or points.
+
 ## 1.6.3
 - Phrase selection grows smoothly instead of jumping.
 - Karaoke highlight steps aside while you're picking a phrase.

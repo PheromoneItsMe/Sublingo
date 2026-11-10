@@ -80,7 +80,7 @@
   window.fetch = function (input) {
     const p = fo.apply(this, arguments);
     try {
-      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const url = typeof input === 'string' ? input : (input && typeof input.url === 'string') ? input.url : String(input || '');
       if (URL_RE.test(url)) p.then(r => r.clone().text().then(t => onText(new URL(url, location.href).href, t)).catch(() => {})).catch(() => {});
     } catch (e) {}
     return p;

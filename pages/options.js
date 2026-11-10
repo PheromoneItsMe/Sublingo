@@ -12,7 +12,9 @@
       ['translationMode', 'select', 'Источник перевода', [['auto', 'Авто: человеческий, если есть, иначе Google'], ['human', 'Только человеческий (субтитры на вашем языке)'], ['machine', 'Машинный (Google)'], ['youtube', 'Автоперевод YouTube'], ['off', 'Без перевода']]],
       ['showOriginal', 'bool', 'Показывать оригинальные субтитры'],
       ['showTranslation', 'bool', 'Показывать перевод'],
-      ['blurTranslation', 'bool', 'Размывать перевод', 'Перевод виден при наведении или по клавише E — тренирует понимание на слух'],
+      ['blurTranslation', 'bool', 'Перевод скрыт до наведения', 'Сначала пробуешь понять сам, потом наводишь мышь (или E). Клавиша T включает и выключает'],
+      ['showExpr', 'bool', 'Подчёркивать устойчивые выражения и фразовые глаголы', 'give up, figure it out, by the way… Наведение и клик показывают перевод всего выражения. Клавиша G'],
+      ['summaryAtEnd', 'bool', 'Итог по видео в конце', 'Какие из твоих слов встретились, что ты смотрел в словаре, выражения из видео. Без оценок. Всегда доступен в меню ⋯'],
       ['hideNativeSubs', 'bool', 'Скрывать родные субтитры сайта'],
       ['keepLastLine', 'bool', 'Не убирать реплику в паузах между фразами'],
       ['wordHighlight', 'bool', 'Подсвечивать слово, которое сейчас произносится (эксперимент)', 'Точно — на автосубтитрах YouTube; на остальных — примерно, по длине слов. Клавиша H'],
@@ -27,7 +29,10 @@
       ['panelWidth', 'number', 'Ширина панели, px']
     ]],
     ['Воспроизведение', [
-      ['autoPause', 'bool', 'Автопауза после каждой реплики', 'Пробел или D — продолжить'],
+      ['autoPause', 'bool', 'Автопауза после реплики', 'Пробел или D — продолжить. Клавиша Q: выкл → все → только трудные'],
+      ['pauseBefore', 'select', 'Пауза до реплики', [['off', 'Выключена'], ['all', 'Перед каждой репликой'], ['hard', 'Только перед трудными']], 'Видео встаёт перед фразой: сначала читаешь английский, потом слушаешь. Удобно, когда речь в ролике на русском. Пробел или D — слушать. Клавиша P'],
+      ['autoPauseHard', 'bool', 'Только на трудных репликах', 'Останавливаться, если в реплике есть незнакомые слова (новые, рекомендуемые, те, что учишь). Простые реплики идут без остановки'],
+      ['hardMin', 'range', 'Трудная реплика — от скольких незнакомых слов', [1, 5, 1]],
       ['pauseOnHover', 'bool', 'Пауза, когда мышь над субтитрами'],
       ['pauseOnDict', 'bool', 'Пауза при открытии словаря'],
       ['slowSegments', 'bool', 'Замедлять речь', 'Во время реплик скорость снижается, в паузах — обычная'],
@@ -39,6 +44,8 @@
       ['rightClick', 'select', 'Правый клик по слову', clickActs],
       ['middleClick', 'select', 'Средний клик по слову', clickActs],
       ['speakOnClick', 'bool', 'Произносить слово при открытии словаря'],
+      ['hoverTranslate', 'bool', 'Перевод при наведении на слово', 'Маленькая подсказка через полсекунды; клик — полная карточка'],
+      ['saveMedia', 'bool', 'Сохранять голос и кадр вместе с фразой', 'Звук реплики и стоп-кадр из видео — для повторения и Anki. На защищённых видео (Netflix) недоступно'],
       ['dictDetailed', 'bool', 'Открывать словарь сразу подробно', 'По умолчанию — коротко: перевод и кнопки; остальное по «Подробнее»']
     ]],
     ['Подсветка слов', [
@@ -68,6 +75,7 @@
       ['autoKnownDays', 'number', 'Считать выученным при интервале (дней)', 'Слово переходит в «Знаю». 0 — никогда']
     ]],
     ['Озвучка', [
+      ['ttsMode', 'select', 'Синтетический голос', [['manual', 'Только по кнопке 🔊'], ['on', 'Сам озвучивает (в повторении и при клике)'], ['off', 'Выключен совсем']]],
       ['ttsVoice', 'voice', 'Голос'],
       ['ttsRate', 'range', 'Скорость речи', [0.5, 1.5, 0.05]]
     ]],
@@ -95,7 +103,7 @@
       else if (type === 'select') html += `<label class="opt">${lab}<select data-k="${k}">${extra.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>`;
       else if (type === 'range') html += `<label class="opt">${lab}<input type="range" data-k="${k}" min="${extra[0]}" max="${extra[1]}" step="${extra[2]}"><b data-v="${k}" style="width:44px;text-align:right"></b></label>`;
       else if (type === 'number') html += `<label class="opt">${lab}<input type="number" data-k="${k}" style="width:100px"></label>`;
-      else if (type === 'voice') html += `<label class="opt">${lab}<select data-k="${k}" id="voice" style="max-width:260px"><option value="">По умолчанию</option></select><button class="btn sm" id="ttsTest">▶</button></label>`;
+      else if (type === 'voice') html += `<label class="opt">${lab}<select data-k="${k}" id="voice" style="max-width:260px"><option value="">Лучший доступный (авто)</option></select><button class="btn sm" id="ttsTest">▶</button></label>`;
       else html += `<label class="opt" style="flex-wrap:wrap">${lab}<input type="${type}" data-k="${k}" style="width:100%"></label>`;
     }
     if (title.startsWith('ИИ')) html += `<div class="row" style="margin-top:8px"><button class="btn sm" id="aiTest">Проверить</button><span class="mut" id="aiOut"></span></div>`;

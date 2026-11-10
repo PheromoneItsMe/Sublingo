@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>SubLingo — статистика</title><link rel="stylesheet" href="pages.css"><link rel="icon" href="../icons/icon32.png">
+<style>
+  .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .stat small { display: block; color: var(--mut); font-size: 12px; margin-top: 2px; }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .cols2 { grid-template-columns: 1fr; } }
+  .chart { position: relative; height: 190px; margin-top: 6px; }
+  .chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .chart .tip { position: absolute; pointer-events: none; background: rgba(20,20,23,.96); border: 1px solid #36363c; border-radius: 8px; padding: 5px 9px; font-size: 12px; color: #e4e4e7; white-space: nowrap; transform: translate(-50%, -100%); opacity: 0; transition: opacity .12s; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
+  .chart .tip b { color: #fff; font-size: 14px; }
+  .axis { display: none; }
+  .wl { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #1d1d21; }
+  .wl .c { margin-left: auto; color: var(--mut); font-size: 12px; }
+  .vl { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid #1d1d21; align-items: baseline; }
+  .vl a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e4e4e7; text-decoration: none; }
+  .vl a:hover { color: #fdba74; }
+  .note { color: var(--mut); font-size: 13px; line-height: 1.55; }
+</style></head>
+<body>
+<div class="top"><a class="logo" href="#"><img src="../icons/icon48.png" alt="">SubLingo</a>
+  <nav class="nav"><a href="vocab.html">Мои слова</a><a href="review.html">Повторение</a><a href="reader.html">Чтение</a><a href="player.html">Видеофайл</a><a href="stats.html" class="on">Статистика</a><a href="options.html">Настройки</a></nav></div>
+<div class="wrap">
+  <p class="note">Здесь только то, что ты действительно сделал: сколько времени провёл с языком, что услышал, что отметил и что закрепил повторением. «Уровень словаря» из настроек в эти цифры не входит — он нужен только для подсветки.</p>
+
+  <h2>Слушание</h2>
+  <div class="grid4" id="listen"></div>
+  <div class="card"><h3 style="margin-top:0">Минут в день за 30 дней</h3><div class="chart" id="chWatch"></div><div class="axis" id="axWatch"></div></div>
+
+  <h2>Словарь, честно</h2>
+  <div class="grid4" id="vocab"></div>
+  <div class="cols2">
+    <div class="card"><h3 style="margin-top:0">Закреплённые слова и фразы</h3><div class="chart" id="chMature"></div><div class="axis" id="axMature"></div><div class="note" style="margin-top:8px">Закреплено — значит повторение отодвинулось на 3+ недели и ты всё ещё помнишь. Это и есть твой настоящий словарь.</div></div>
+    <div class="card"><h3 style="margin-top:0">Повторений в день</h3><div class="chart" id="chReview"></div><div class="axis" id="axReview"></div></div>
+  </div>
+
+  <div class="cols2">
+    <div class="card"><h3 style="margin-top:0">Слышишь часто, но ещё не учишь</h3><div class="note" style="margin-bottom:6px">Слова, которые чаще всего звучат в том, что ты смотришь. Отсюда выгоднее всего брать новые.</div><div id="often"></div></div>
+    <div class="card"><h3 style="margin-top:0">Что смотрел</h3><div id="videos"></div></div>
+  </div>
+</div>
+<script src="../common/freq.js"></script>
+<script src="../common/lib.js"></script>
+<script src="../common/srs.js"></script>
+<script src="../content/ui-css.js"></script>
+<script src="../content/dict.js"></script>
+<script src="stats.js"></script>
+</body></html>

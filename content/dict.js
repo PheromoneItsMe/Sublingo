@@ -4,7 +4,12 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
   'use strict';
 
   SL.speak = function (text, opts) {
-    return SL.send('tts', Object.assign({ text }, opts || {})).catch(() => {
+    const mode = SL.settings.ttsMode || 'manual';
+    const auto = !!(opts && opts.auto);
+    if (mode === 'off') { if (!auto) SL.toast('Синтетический голос выключен — включить можно в настройках («Озвучка»)', 1800); return Promise.resolve('off'); }
+    if (mode === 'manual' && auto) return Promise.resolve('skip');
+    opts = Object.assign({}, opts || {}); delete opts.auto;
+    return SL.send('tts', Object.assign({ text }, opts)).catch(() => {
       try { const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = SL.settings.ttsRate || 1; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
     });
   };
@@ -39,6 +44,61 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
   document.addEventListener('fullscreenchange', () => {
     for (const id in hosts) { const h = hosts[id]; if (!h.fixedParent && h.el.isConnected) { const t = document.fullscreenElement || document.body; if (h.el.parentNode !== t) t.appendChild(h.el); } }
   });
+
+  /* Перевод при наведении: маленькая подсказка над словом, клик — полная карточка */
+  const tipCache = new Map();
+  let tipEl = null, tipFor = null;
+  function hideTip() { tipFor = null; if (tipEl) tipEl.classList.remove('show'); }
+  async function showTip(w) {
+    const isX = w.classList.contains('sl-xp');
+    const word = isX ? w.dataset.x : w.dataset.w;
+    if (!word) return;
+    tipFor = w;
+    const key = word.toLowerCase();
+    let text = isX ? w.dataset.g : tipCache.get(key);
+    if (text == null) {
+      try {
+        const r = await SL.send('lookup', { word, tl: SL.settings.targetLang });
+        const terms = (r.dict && r.dict[0] && r.dict[0].terms || []).map(t => t.word);
+        const main = r.translation || '';
+        const list = [main].concat(terms.filter(t => t.toLowerCase() !== main.toLowerCase())).filter(Boolean).slice(0, 3);
+        text = list.join(', ');
+      } catch (e) { text = ''; }
+      tipCache.set(key, text);
+      if (tipCache.size > 3000) tipCache.delete(tipCache.keys().next().value);
+    }
+    if (tipFor !== w || !text || SL.Dict.open || !w.isConnected) return;
+    const host = SL.makeHost('sl-tip-host');
+    if (!tipEl || !tipEl.isConnected) { tipEl = document.createElement('div'); tipEl.className = 'sl-tip sl-root'; host.shadow.appendChild(tipEl); }
+    tipEl.classList.toggle('x', isX);
+    if (isX) { tipEl.innerHTML = ''; const b = document.createElement('b'); b.textContent = word; tipEl.append(b, ' — ' + text); }
+    else tipEl.textContent = text;
+    const r = w.getBoundingClientRect();
+    tipEl.style.left = '0px'; tipEl.style.top = '0px';
+    tipEl.classList.add('show');
+    const tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+    tipEl.style.left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2)) + 'px';
+    tipEl.style.top = (r.top - th - 8 > 4 ? r.top - th - 8 : r.bottom + 8) + 'px';
+  }
+  SL.hoverTip = function (root, opts) {
+    if (!root || root.__slTip) return;
+    root.__slTip = true;
+    let timer = null, cur = null;
+    // слово внутри устойчивого выражения показывает перевод всего выражения
+    const unit = (t) => { const w = t.closest && t.closest('.sl-w'); return w && SL.settings.showExpr !== false && w.closest('.sl-xp') || w; };
+    root.addEventListener('mouseover', (e) => {
+      const w = unit(e.target);
+      if (!w || w === cur) return;
+      cur = w; clearTimeout(timer); hideTip();
+      if (SL.settings.hoverTranslate === false || SL.Dict.open || (opts && opts.skip && opts.skip()) || e.ctrlKey) return;
+      timer = setTimeout(() => { if (cur === w) showTip(w); }, 380);
+    });
+    root.addEventListener('mouseout', (e) => {
+      const w = unit(e.target);
+      if (w && !(e.relatedTarget && w.contains(e.relatedTarget))) { if (cur === w) cur = null; clearTimeout(timer); hideTip(); }
+    });
+    root.addEventListener('mousedown', () => { clearTimeout(timer); cur = null; hideTip(); }, true);
+  };
 
   /* Красивое выделение фразы: сплошная «капсула» под словами, по одной на строку */
   SL.selMark = function (box, first, last) {
@@ -163,6 +223,7 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
       box.addEventListener('keydown', e => e.stopPropagation());
       box.addEventListener('keyup', e => e.stopPropagation());
       box.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+      SL.send('stats:bump', { field: 'lookups' }).catch(() => {});
       if (opts.phrase) return Dict._phrase(box, opts);
       return Dict._word(box, opts);
     },
@@ -280,7 +341,9 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
         if (next && opts.sentence && !state.sentTr && next === 'learning') {
           try { state.sentTr = (await SL.send('translate', { texts: [opts.sentence], tl: S.targetLang }))[0] || ''; } catch (e) {}
         }
-        await SL.send('vocab:mark', { lemma, word, status: next, context: next ? ctx() : null, translation: state.look ? state.look.translation : '' });
+        const c = next ? ctx() : null;
+        if (c && next === 'learning' && opts.media && !(SL.words[lemma] && (SL.words[lemma].contexts || []).some(x => x.text === c.text && x.media))) { try { c.media = await opts.media(); } catch (e) {} }
+        await SL.send('vocab:mark', { lemma, word, status: next, context: c, translation: state.look ? state.look.translation : '' });
         await SL.loadVocab();
         render();
         if (opts.onChange) opts.onChange();
@@ -328,7 +391,7 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
       box.tabIndex = -1;
 
       render();
-      if (S.speakOnClick || opts.speak) SL.speak(word);
+      if (S.speakOnClick || opts.speak) SL.speak(word, { auto: true });
       const p1 = SL.send('lookup', { word, tl: S.targetLang }).then(r => { state.look = r; }).catch(e => { state.look = { translation: '⚠ ' + e.message, dict: [] }; });
       const p2 = SL.send('define', { word: lemma }).then(r => { state.def = r; }).catch(() => {});
       await p1; if (Dict._box === box) render();
@@ -347,6 +410,8 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
         box.innerHTML = `<div class="sl-dh"><button class="sl-ibtn sl-dclose" data-a="close">✕</button>
           <div style="font-size:16px;font-weight:600;color:#fff;padding-right:24px">${SL.esc(text)}</div>
           <div class="sl-dmain">${state.tr ? SL.esc(state.tr) : '<span class="sl-spin"></span>'}</div>
+          ${opts.surface && opts.surface.toLowerCase() !== text.toLowerCase() ? `<div class="sl-xsurf">в реплике: «${SL.esc(opts.surface)}»</div>` : ''}
+          ${opts.words && opts.words.length && opts.onWord ? `<div class="sl-xwords"><span>Слова:</span>${opts.words.map(w => `<button class="sl-xword" data-a="word" data-w="${SL.esc(w)}">${SL.esc(w)}</button>`).join('')}</div>` : ''}
           <div class="sl-stages">
             <button class="sl-stage learning ${sp ? 'on' : ''}" data-a="save">${sp ? '★ Сохранено' : '☆ Сохранить'}</button>
             <button class="sl-stage" data-a="speak">🔊</button>
@@ -369,12 +434,17 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
         if (!t) return;
         const a = t.dataset.a;
         if (a === 'close') Dict.close();
+        else if (a === 'word') { opts.onWord(t.dataset.w, t.getBoundingClientRect()); }
         else if (a === 'more') { state.expanded = !state.expanded; render(); }
-        else if (a === 'speak') SL.speak(text);
+        else if (a === 'speak') SL.speak(opts.surface || text);
         else if (a === 'save') {
           const sp = saved();
           if (sp) await SL.send('vocab:removePhrase', { id: sp.id });
-          else await SL.send('vocab:savePhrase', { text, translation: state.tr, source: opts.source || null, context: opts.sentence || '' });
+          else {
+            let media = null;
+            if (opts.media) { try { media = await opts.media(); } catch (e) {} }
+            await SL.send('vocab:savePhrase', { text, translation: state.tr, source: opts.source || null, context: opts.sentence || '', media });
+          }
           await SL.loadVocab(); render(); if (opts.onChange) opts.onChange();
         } else if (a === 'ai') {
           const out = box.querySelector('.sl-aiout');

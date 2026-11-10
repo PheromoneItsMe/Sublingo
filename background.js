@@ -1,5 +1,5 @@
 /* SubLingo — service worker */
-importScripts('common/freq.js', 'common/lib.js', 'common/srs.js');
+importScripts('common/freq.js', 'common/lib.js', 'common/srs.js', 'common/media.js');
 
 const state = { settingsLoaded: SL.loadSettings() };
 
@@ -25,8 +25,11 @@ async function bumpStat(field, n) {
 function addContext(entry, ctx) {
   if (!ctx || !ctx.text) return;
   entry.contexts = entry.contexts || [];
-  if (entry.contexts.some(c => c.text === ctx.text)) return;
-  entry.contexts.unshift({ text: String(ctx.text).slice(0, 600), translation: ctx.translation || '', source: ctx.source || null, at: Date.now() });
+  const ex = entry.contexts.find(c => c.text === ctx.text);
+  if (ex) { if (ctx.media && !ex.media) ex.media = ctx.media; return; }
+  const c = { text: String(ctx.text).slice(0, 600), translation: ctx.translation || '', source: ctx.source || null, at: Date.now() };
+  if (ctx.media) c.media = ctx.media;
+  entry.contexts.unshift(c);
   entry.contexts = entry.contexts.slice(0, 8);
 }
 
@@ -36,7 +39,7 @@ const vocab = {
     const now = Date.now();
     let e = words[lemma];
     if (!status) {
-      if (e) { delete e.status; if (!(e.tags && e.tags.length)) delete words[lemma]; }
+      if (e) { delete e.status; if (!(e.tags && e.tags.length)) { SL.media.del(mediaIds(e)).catch(() => {}); delete words[lemma]; } }
       await chrome.storage.local.set({ sl_words: words });
       return null;
     }
@@ -77,7 +80,7 @@ const vocab = {
     const store = kind === 'phrase' ? v.phrases : v.words;
     for (const id of ids) {
       if (!store[id]) continue;
-      if (remove) { delete store[id]; continue; }
+      if (remove) { SL.media.del(mediaIds(store[id])).catch(() => {}); delete store[id]; continue; }
       if (patch.addTag) { store[id].tags = store[id].tags || []; if (!store[id].tags.includes(patch.addTag)) store[id].tags.push(patch.addTag); }
       else if (patch.clearTags) store[id].tags = [];
       else Object.assign(store[id], patch);
@@ -88,19 +91,20 @@ const vocab = {
     await chrome.storage.local.set(kind === 'phrase' ? { sl_phrases: v.phrases } : { sl_words: v.words });
     return ids.length;
   }),
-  savePhrase: ({ text, translation, source, context }) => serial(async () => {
+  savePhrase: ({ text, translation, source, context, media }) => serial(async () => {
     const { phrases } = await getVocab();
     const existing = Object.values(phrases).find(p => p.text === text);
-    if (existing) { if (translation && !existing.translation) existing.translation = translation; await chrome.storage.local.set({ sl_phrases: phrases }); return existing; }
+    if (existing) { if (translation && !existing.translation) existing.translation = translation; if (media && !existing.media) existing.media = media; await chrome.storage.local.set({ sl_phrases: phrases }); return existing; }
     const id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     phrases[id] = { id, text, translation: translation || '', source: source || null, context: context || '', tags: [], note: '', createdAt: Date.now(), srs: SL.srs.init() };
+    if (media) phrases[id].media = media;
     await chrome.storage.local.set({ sl_phrases: phrases });
     await bumpStat('marked');
     return phrases[id];
   }),
   removePhrase: ({ text, id }) => serial(async () => {
     const { phrases } = await getVocab();
-    for (const k in phrases) if (k === id || phrases[k].text === text) delete phrases[k];
+    for (const k in phrases) if (k === id || phrases[k].text === text) { if (phrases[k].media) SL.media.del(phrases[k].media).catch(() => {}); delete phrases[k]; }
     await chrome.storage.local.set({ sl_phrases: phrases });
     return true;
   }),
@@ -125,8 +129,10 @@ const vocab = {
     let nw = 0, np = 0;
     const words = data.words || data.sl_words || {};
     const phrases = data.phrases || data.sl_phrases || {};
-    for (const k in words) { if (!v.words[k]) nw++; v.words[k] = Object.assign({}, v.words[k] || {}, words[k]); }
-    for (const k in phrases) { if (!v.phrases[k]) np++; v.phrases[k] = Object.assign({}, v.phrases[k] || {}, phrases[k]); }
+    // из файла берём только обычные записи-объекты (без __proto__ и прочих служебных ключей)
+    const okKey = (k, val) => !/^(__proto__|constructor|prototype)$/.test(k) && val && typeof val === 'object' && !Array.isArray(val);
+    for (const k of Object.keys(words)) { if (!okKey(k, words[k])) continue; if (!v.words[k]) nw++; v.words[k] = Object.assign({}, v.words[k] || {}, words[k]); }
+    for (const k of Object.keys(phrases)) { if (!okKey(k, phrases[k])) continue; if (!v.phrases[k]) np++; v.phrases[k] = Object.assign({}, v.phrases[k] || {}, phrases[k]); }
     const patch = { sl_words: v.words, sl_phrases: v.phrases };
     if (data.texts || data.sl_texts) patch.sl_texts = Object.assign({}, (await chrome.storage.local.get('sl_texts')).sl_texts || {}, data.texts || data.sl_texts);
     if (data.settings || data.sl_settings) patch.sl_settings = Object.assign({}, SL.settings, data.settings || data.sl_settings);
@@ -220,7 +226,10 @@ async function translateMany(textsIn, sl, tl) {
           ch.forEach((x, k) => { res[x.i] = parts[k].trim(); cacheSet(sl + tl + x.text, res[x.i]); });
           continue;
         }
-      } catch (e) { console.warn('batch translate failed', e); }
+      } catch (e) {
+        // сервис ответил ошибкой (часто 429 — слишком много запросов): не добиваем его поштучными запросами
+        if (/HTTP \d/.test(e.message)) { ch.forEach(x => { res[x.i] = ''; }); continue; }
+      }
       for (const x of ch) {
         try { res[x.i] = (await gtxTranslate(x.text, sl, tl)).trim(); cacheSet(sl + tl + x.text, res[x.i]); }
         catch (e) { res[x.i] = ''; }
@@ -309,11 +318,23 @@ async function ai({ messages, system }) {
 /* ------------------------------------------------------------------ */
 /* TTS                                                                 */
 /* ------------------------------------------------------------------ */
-function tts({ text, rate, voice, lang }) {
+// если голос не выбран — берём самый естественный из доступных (а не системный «робот»)
+let bestVoice = null;
+function pickVoice() {
+  if (bestVoice !== null) return Promise.resolve(bestVoice);
+  return new Promise(r => chrome.tts.getVoices(vs => {
+    const en = (vs || []).filter(v => /^en/i.test(v.lang || ''));
+    const score = (v) => (/natural|neural|online/i.test(v.voiceName) ? 40 : 0) + (/google/i.test(v.voiceName) ? 20 : 0) + (/en-US/i.test(v.lang) ? 5 : 0) + (v.remote ? 3 : 0) - (/david|zira|mark|espeak/i.test(v.voiceName) ? 10 : 0);
+    en.sort((a, b) => score(b) - score(a));
+    bestVoice = en[0] ? en[0].voiceName : '';
+    r(bestVoice);
+  }));
+}
+async function tts({ text, rate, voice, lang }) {
+  const v = voice || SL.settings.ttsVoice || await pickVoice();
   return new Promise((resolve) => {
     chrome.tts.stop();
     const opts = { lang: lang || 'en-US', rate: rate || SL.settings.ttsRate || 1, onEvent: (e) => { if (['end', 'error', 'interrupted', 'cancelled'].includes(e.type)) resolve(e.type); } };
-    const v = voice || SL.settings.ttsVoice;
     if (v) opts.voiceName = v;
     chrome.tts.speak(String(text).slice(0, 1000), opts);
   });
@@ -330,8 +351,49 @@ async function dueCount() {
   for (const k in phrases) { const p = phrases[k]; if (p.srs && p.srs.seen && p.srs.due <= now) n++; }
   return n;
 }
+function mediaIds(e) { if (!e) return []; return [e.media].concat((e.contexts || []).map(c => c.media)).filter(Boolean); }
+
+// снимок «честного» словаря на сегодня: сколько учу, сколько реально закреплено повторением, сколько отмечено «знаю»
+async function snapshot() {
+  const { words, phrases } = await getVocab();
+  let learning = 0, mature = 0, known = 0;
+  for (const k in words) { const w = words[k]; if (w.status === 'learning') { learning++; if (w.srs && w.srs.interval >= 21) mature++; } else if (w.status === 'known') known++; }
+  for (const k in phrases) { const p = phrases[k]; learning++; if (p.srs && p.srs.interval >= 21) mature++; }
+  const r = await chrome.storage.local.get('sl_stats');
+  const st = r.sl_stats || { days: {} };
+  const d = SL.srs.dayKey();
+  st.days[d] = st.days[d] || {};
+  st.days[d].snap = { learning, mature, known };
+  await chrome.storage.local.set({ sl_stats: st });
+}
+
+// просмотр: минуты, услышанные реплики и слова, журнал видео
+const watch = ({ sec, lines, heard, source }) => serial(async () => {
+  const r = await chrome.storage.local.get(['sl_stats', 'sl_heard', 'sl_watchlog']);
+  const st = r.sl_stats || { days: {} };
+  const d = SL.srs.dayKey();
+  st.days[d] = st.days[d] || {};
+  st.days[d].watchSec = (st.days[d].watchSec || 0) + (sec || 0);
+  st.days[d].lines = (st.days[d].lines || 0) + (lines || 0);
+  const hd = r.sl_heard || {};
+  let fresh = 0;
+  for (const w in (heard || {})) { if (!hd[w]) fresh++; hd[w] = (hd[w] || 0) + heard[w]; }
+  st.days[d].newHeard = (st.days[d].newHeard || 0) + fresh;
+  const log = r.sl_watchlog || {};
+  if (source && (source.url || source.videoId || source.movieId || source.title)) {
+    const key = source.videoId ? 'yt:' + source.videoId : source.movieId ? 'nf:' + source.movieId : (source.url || source.title);
+    const e = log[key] = log[key] || { title: source.title || '', url: SL.sourceLink(source) || source.url || '', sec: 0, first: Date.now() };
+    e.sec += sec || 0; e.last = Date.now(); if (source.title) e.title = source.title;
+    const keys = Object.keys(log);
+    if (keys.length > 400) keys.sort((a, b) => log[a].last - log[b].last).slice(0, keys.length - 400).forEach(k => delete log[k]);
+  }
+  await chrome.storage.local.set({ sl_stats: st, sl_heard: hd, sl_watchlog: log });
+  return true;
+});
+
 async function updateBadge() {
   try {
+    serial(snapshot).catch(() => {});
     const n = await dueCount();
     chrome.action.setBadgeText({ text: n ? String(n > 999 ? '999+' : n) : '' });
     chrome.action.setBadgeBackgroundColor({ color: '#f97316' });
@@ -358,9 +420,28 @@ chrome.runtime.onInstalled.addListener((d) => {
   setupMenus();
   chrome.alarms.create('sl-badge', { periodInMinutes: 10 });
   updateBadge();
+  if (d.reason === 'update') setTimeout(gcMedia, 30000);
   if (d.reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('pages/options.html#welcome') });
 });
-chrome.runtime.onStartup.addListener(() => { setupMenus(); updateBadge(); });
+chrome.runtime.onStartup.addListener(() => { setupMenus(); updateBadge(); setTimeout(gcMedia, 60000); });
+
+/* Чистка медиа: голос и кадры слов/фраз, которые уже удалены (или вытеснены новыми примерами).
+   Свежие записи (моложе часа) не трогаем — их могли только что сохранить, а слово ещё не записано. */
+async function gcMedia() {
+  try {
+    const v = await getVocab();
+    const used = new Set();
+    Object.values(v.words).forEach(e => mediaIds(e).forEach(id => used.add(id)));
+    Object.values(v.phrases).forEach(e => mediaIds(e).forEach(id => used.add(id)));
+    const hourAgo = Date.now() - 3600e3;
+    const stale = (await SL.media.keys()).filter(id => {
+      if (used.has(id)) return false;
+      const ts = parseInt(String(id).slice(1, 9), 36);   // id = 'm' + время (8 знаков в base36) + случайное
+      return !(ts > hourAgo);
+    });
+    if (stale.length) await SL.media.del(stale);
+  } catch (e) {}
+}
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'sl-badge') updateBadge(); });
 
 function extractPage() {
@@ -425,19 +506,54 @@ const handlers = {
   'texts:save': texts.save,
   'texts:remove': texts.remove,
   'due': dueCount,
+  'media:put': (m) => SL.media.put(m.id, m.value),
+  'stats:watch': watch,
+  'stats:bump': (m) => serial(() => bumpStat(m.field, m.n || 1)).then(() => true),
+  'stats:snapshot': () => serial(snapshot).then(() => true),
   'injectCore': async (m, sender) => {
-    await chrome.scripting.executeScript({ target: { tabId: sender.tab.id, frameIds: [sender.frameId || 0] }, files: ['common/freq.js', 'content/core.js'] });
+    await chrome.scripting.executeScript({ target: { tabId: sender.tab.id, frameIds: [sender.frameId || 0] }, files: ['common/freq.js', 'common/phrases.js', 'content/clip.js', 'content/core.js'] });
     return true;
   },
   'tabInfo': (m, sender) => ({ url: sender.tab && sender.tab.url, title: sender.tab && sender.tab.title }),
-  'fetchPage': async (m) => { const r = await fetch(m.url, { credentials: 'omit' }); if (!r.ok) throw new Error('HTTP ' + r.status); return (await r.text()).slice(0, 3000000); },
-  'open': (m) => chrome.tabs.create({ url: chrome.runtime.getURL('pages/' + m.page) }).then(() => true),
-  'openUrl': (m) => chrome.tabs.create({ url: m.url }).then(() => true)
+  'fetchPage': fetchPage,
+  'open': (m) => chrome.tabs.create({ url: chrome.runtime.getURL('pages/' + String(m.page || '').replace(/[^\w.#?=&-]/g, '')) }).then(() => true)
 };
+
+/* Загрузка файла субтитров в обход CORS. Адрес может подсунуть сама страница (через плеер),
+   поэтому пускаем только обычные http(s)-адреса в интернете: без localhost, локальной сети и т.п. */
+function isPublicUrl(u) {
+  let url;
+  try { url = new URL(u); } catch (e) { return false; }
+  if (!/^https?:$/.test(url.protocol)) return false;
+  const h = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!h || h === 'localhost' || /\.(localhost|local|internal|lan|home|corp)$/.test(h) || !h.includes('.') && !h.includes(':')) return false;
+  if (/^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(h)) return false;
+  if (h.includes(':') && (h === '::1' || /^(fc|fd|fe80)/.test(h) || h.startsWith('::ffff:'))) return false;
+  return true;
+}
+async function fetchPage(m) {
+  if (!isPublicUrl(m.url)) throw new Error('адрес не разрешён');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 20000);
+  try {
+    const r = await fetch(m.url, { credentials: 'omit', signal: ctl.signal, redirect: 'follow' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (r.url && !isPublicUrl(r.url)) throw new Error('адрес не разрешён');
+    return (await r.text()).slice(0, 3000000);
+  } finally { clearTimeout(timer); }
+}
+
+// эти действия меняют много данных разом — их можно вызывать только со страниц самого расширения
+const PAGES_ONLY = new Set(['vocab:import', 'vocab:bulk', 'vocab:grade', 'texts:save', 'texts:remove', 'stats:snapshot']);
+const EXT_ORIGIN = chrome.runtime.getURL('');
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const h = msg && handlers[msg.type];
   if (!h) return false;
+  if (sender.id !== chrome.runtime.id || (PAGES_ONLY.has(msg.type) && !(sender.url || '').startsWith(EXT_ORIGIN))) {
+    sendResponse({ error: 'forbidden' });
+    return false;
+  }
   state.settingsLoaded.then(() => h(msg, sender)).then(
     (result) => sendResponse({ result }),
     (e) => sendResponse({ error: (e && e.message) || String(e) })

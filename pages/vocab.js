@@ -54,13 +54,13 @@
     $('empty').classList.toggle('hidden', arr.length > 0);
     const rows = arr.slice(0, limit).map(x => {
       const id = kind === 'word' ? x.lemma : x.id;
-      const c = kind === 'word' ? (x.contexts || [])[0] : { text: x.context && x.context !== x.text ? x.context : '', translation: '', source: x.source };
+      const c = kind === 'word' ? ((x.contexts || []).find(cc => cc.media) || (x.contexts || [])[0]) : { text: x.context && x.context !== x.text ? x.context : '', translation: '', source: x.source, media: x.media };
       const link = c && c.source ? SL.sourceLink(c.source) : '';
       const src = c && c.source ? (c.source.title || c.source.url || '') : '';
       const status = kind === 'word' ? `<select data-st="${SL.esc(id)}"><option value="learning" ${x.status === 'learning' ? 'selected' : ''}>Учу</option><option value="known" ${x.status === 'known' ? 'selected' : ''}>Знаю</option><option value="ignored" ${x.status === 'ignored' ? 'selected' : ''}>Не учить</option><option value="" ${!x.status ? 'selected' : ''}>—</option></select>` : '<span class="pill learning">фраза</span>';
       return `<tr data-id="${SL.esc(id)}">
         <td class="chk"><input type="checkbox" data-sel="${SL.esc(id)}" ${selected.has(id) ? 'checked' : ''}></td>
-        <td>${kind === 'word' ? `<span class="w sl-w" data-w="${SL.esc(x.lemma)}">${SL.esc(x.lemma)}</span>${x.word && x.word.toLowerCase() !== x.lemma ? `<div class="mut">${SL.esc(x.word)}</div>` : ''}<div class="mut">#${SL.rank(x.lemma) || '—'}</div>` : `<span class="w" style="font-weight:500">${SL.esc(x.text)}</span> <button class="btn sm" data-tts="${SL.esc(x.text)}">🔊</button>`}</td>
+        <td>${kind === 'word' ? `<span class="w sl-w" data-w="${SL.esc(x.lemma)}">${SL.esc(x.lemma)}</span>${x.word && x.word.toLowerCase() !== x.lemma ? `<div class="mut">${SL.esc(x.word)}</div>` : ''}<div class="mut">#${SL.rank(x.lemma) || '—'}</div>` : `<span class="w" style="font-weight:500">${SL.esc(x.text)}</span> <button class="btn sm" data-tts="${SL.esc(x.text)}">🔊</button>`}${c && c.media ? ` <button class="btn sm" data-clip="${SL.esc(c.media)}" title="Голос и кадр из видео">🎬</button>` : ''}</td>
         <td style="min-width:180px"><input type="text" class="tr-in" data-tr="${SL.esc(id)}" value="${SL.esc(x.translation || '')}" placeholder="перевод"><input type="text" class="tr-in mut" data-note="${SL.esc(id)}" value="${SL.esc(x.note || '')}" placeholder="заметка"></td>
         <td class="ctx">${c && c.text ? hl(c.text, kind === 'word' ? (x.word || x.lemma) : '') : ''}${c && c.translation ? `<div class="mut">${SL.esc(c.translation)}</div>` : ''}${link ? `<div><a href="${SL.esc(link)}" target="_blank" class="mut">↗ ${SL.esc(src.slice(0, 60))}${c.source.time ? ' · ' + SL.fmtTime(c.source.time) : ''}</a></div>` : ''}${kind === 'word' && (x.contexts || []).length > 1 ? `<div class="mut">+${x.contexts.length - 1} примеров</div>` : ''}</td>
         <td>${status}</td>
@@ -107,6 +107,7 @@
       return;
     }
     if (t.dataset.tts) { SL.speak(t.dataset.tts); return; }
+    if (t.dataset.clip) { showClip(t.dataset.clip); return; }
     const w = t.closest('.sl-w');
     if (w) {
       const e2 = SL.words[w.dataset.w];
@@ -147,6 +148,46 @@
     $('addText').value = '';
   });
 
+  // ------- голос и кадр -------
+  let clipBox = null;
+  async function showClip(id) {
+    const m = await SL.media.get(id).catch(() => null);
+    if (!m) { alert('Медиа не найдено'); return; }
+    if (!clipBox) { clipBox = document.createElement('div'); clipBox.className = 'clipbox'; document.body.appendChild(clipBox); clipBox.addEventListener('click', e => { if (e.target.dataset.x) clipBox.style.display = 'none'; }); }
+    clipBox.innerHTML = `<button class="btn sm" data-x="1" style="float:right">✕</button>${m.image ? `<img src="${SL.esc(m.image)}" alt="">` : ''}${m.text ? `<div class="mut" style="margin:6px 0">${SL.esc(m.text)}</div>` : ''}${m.audio ? `<audio controls autoplay src="${SL.esc(m.audio)}"></audio>` : '<div class="mut">звук не сохранён</div>'}`;
+    clipBox.style.display = '';
+  }
+  function dataUrlBytes(u) {
+    const b = atob(String(u).split(',')[1] || '');
+    const out = new Uint8Array(b.length);
+    for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
+    return out;
+  }
+  // минимальный ZIP (без сжатия)
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(d) { let c = 0xFFFFFFFF; for (let i = 0; i < d.length; i++) c = CRC[(c ^ d[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zip(files) {
+    const enc = new TextEncoder();
+    const parts = [], central = [];
+    let offset = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name), data = f.data, crc = crc32(data);
+      const h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+      h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+      parts.push(new Uint8Array(h.buffer), name, data);
+      const c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true);
+      c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, offset, true);
+      central.push(new Uint8Array(c.buffer), name);
+      offset += 30 + name.length + data.length;
+    }
+    const csize = central.reduce((a, b) => a + b.length, 0);
+    const e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, csize, true); e.setUint32(16, offset, true);
+    return new Blob(parts.concat(central, [new Uint8Array(e.buffer)]), { type: 'application/zip' });
+  }
+
   // ------- export -------
   function download(name, text, type) {
     const a = document.createElement('a');
@@ -161,7 +202,7 @@
     if ($('onlyNew').checked) arr = arr.filter(x => (x.createdAt || 0) > last);
     if (!arr.length) { alert('Нечего экспортировать'); return; }
     const day = SL.srs.dayKey();
-    const ctxOf = (x) => kind === 'word' ? ((x.contexts || [])[0] || {}) : { text: x.context || '', source: x.source };
+    const ctxOf = (x) => kind === 'word' ? ((x.contexts || []).find(c => c.media) || (x.contexts || [])[0] || {}) : { text: x.context || '', source: x.source, media: x.media };
     if (fmt === 'json') download(`sublingo-${kind}s-${day}.json`, JSON.stringify(arr, null, 1), 'application/json');
     else if (fmt === 'csv') {
       const head = kind === 'word' ? ['word', 'lemma', 'translation', 'status', 'tags', 'context', 'context_translation', 'source', 'link', 'note', 'created'] : ['phrase', 'translation', 'tags', 'source', 'link', 'note', 'created'];
@@ -173,17 +214,31 @@
       });
       download(`sublingo-${kind}s-${day}.csv`, '﻿' + [head].concat(rows).map(r => r.map(csvEsc).join(';')).join('\r\n'), 'text/csv');
     } else if (fmt === 'anki') {
-      // Fields: Front, Back, Context, ContextTranslation, Source, Tags
+      // Fields: Front, Back, Context, ContextTranslation, Audio, Image, Source, Tags
       const clean = (s) => String(s || '').replace(/[\t\r\n]+/g, ' ');
-      const lines = ['#separator:tab', '#html:true', '#columns:Front\tBack\tContext\tContextTranslation\tSource\tTags', '#tags column:6'];
+      const lines = ['#separator:tab', '#html:true', '#columns:Front\tBack\tContext\tContextTranslation\tAudio\tImage\tSource\tTags', '#tags column:8'];
+      const files = [];
       for (const x of arr) {
         const c = ctxOf(x);
         const front = kind === 'word' ? x.lemma : x.text;
         const ctxHtml = c.text ? SL.esc(c.text).replace(new RegExp('(' + (x.word || x.lemma || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'i'), '<b>$1</b>') : '';
         const link = SL.sourceLink(c.source);
-        lines.push([clean(front), clean((x.translation || '') + (x.note ? '<br><i>' + SL.esc(x.note) + '</i>' : '')), clean(kind === 'word' ? ctxHtml : ''), clean(c.translation || ''), link ? `<a href="${SL.esc(link)}">${SL.esc((c.source && c.source.title) || 'источник')}</a>` : '', ['sublingo', kind].concat(x.tags || []).join(' ')].join('\t'));
+        let audio = '', image = '';
+        if (c.media) {
+          const m = await SL.media.get(c.media).catch(() => null);
+          if (m && m.audio) { const n = 'sublingo_' + c.media + '.wav'; files.push({ name: n, data: dataUrlBytes(m.audio) }); audio = '[sound:' + n + ']'; }
+          if (m && m.image) { const n = 'sublingo_' + c.media + '.jpg'; files.push({ name: n, data: dataUrlBytes(m.image) }); image = '<img src="' + n + '">'; }
+        }
+        lines.push([clean(front), clean((x.translation || '') + (x.note ? '<br><i>' + SL.esc(x.note) + '</i>' : '')), clean(kind === 'word' ? ctxHtml : ''), clean(c.translation || ''), audio, image, link ? `<a href="${SL.esc(link)}">${SL.esc((c.source && c.source.title) || 'источник')}</a>` : '', ['sublingo', kind].concat(x.tags || []).join(' ')].join('\t'));
       }
-      download(`sublingo-anki-${kind}s-${day}.txt`, lines.join('\n'), 'text/plain');
+      const deck = lines.join('\n');
+      if (!files.length) download(`sublingo-anki-${kind}s-${day}.txt`, deck, 'text/plain');
+      else {
+        const howto = 'SubLingo → Anki\r\n\r\n1. Скопируйте все файлы sublingo_*.wav и sublingo_*.jpg в папку collection.media вашего профиля Anki\r\n   (Windows: %APPDATA%\\Anki2\\<профиль>\\collection.media).\r\n2. В Anki: Файл → Импорт → deck.txt. Поля: Front, Back, Context, ContextTranslation, Audio, Image, Source.\r\n3. Добавьте поля Audio и Image в шаблон карточки, чтобы слышать голос и видеть кадр.\r\n';
+        const enc = new TextEncoder();
+        const blob = zip([{ name: 'deck.txt', data: enc.encode(deck) }, { name: 'КАК_ИМПОРТИРОВАТЬ.txt', data: enc.encode(howto) }].concat(files));
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `sublingo-anki-${kind}s-${day}.zip`; a.click();
+      }
     } else if (fmt === 'print') {
       const w = window.open('', '_blank');
       w.document.write(`<html><head><meta charset="utf-8"><title>SubLingo — ${day}</title><style>body{font:14px Arial;margin:30px}td{border-bottom:1px solid #ddd;padding:6px;vertical-align:top}b{color:#c2410c}</style></head><body><h2>SubLingo — ${kind === 'word' ? 'слова' : 'фразы'} (${arr.length})</h2><table>${arr.map(x => { const c = ctxOf(x); return `<tr><td><b>${SL.esc(kind === 'word' ? x.lemma : x.text)}</b></td><td>${SL.esc(x.translation || '')}</td><td><i>${SL.esc(c.text || '')}</i></td></tr>`; }).join('')}</table></body></html>`);

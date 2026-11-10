@@ -45,11 +45,22 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
     rightClick: 'learning',       // learning | known | dict | speak | none
     middleClick: 'known',
     speakOnClick: false,
-    dictDetailed: false,          // словарь сразу в подробном виде
+    dictDetailed: false,
+    hoverTranslate: true,         // перевод при наведении
+    saveMedia: true,              // сохранять голос и кадр вместе с фразой          // словарь сразу в подробном виде
     genericSites: [],             // сайты, где включены субтитры для обычных HTML5-плееров
     genericAuto: true,            // включаться автоматически, если найдены субтитры
     subOffset: 0,
-    wordHighlight: false,         // подсветка произносимого слова (эксперимент)
+    wordHighlight: false,
+    subPos: {},                   // своя позиция субтитров по сайтам: { key: { x, y } } в % от плеера
+    subStyle: {},                 // вид субтитров по сайтам: { key: { fontSize, subBackground, transFontScale } }
+    panelBarCollapsed: false,     // свернуть верхнюю панель управления в списке реплик
+    pauseBefore: 'off',           // пауза ДО реплики: off | all | hard
+    autoPauseHard: false,         // автопауза только на трудных репликах
+    hardMin: 2,                   // трудная реплика — от стольких незнакомых слов
+    showExpr: true,               // подчёркивать устойчивые выражения и фразовые глаголы
+    summaryAtEnd: true,           // итог по видео в конце
+    ttsMode: 'manual',            // синтетический голос: on — сам и по кнопке, manual — только по кнопке 🔊, off — никогда
     ttsRate: 0.95,
     ttsVoice: '',
     webLookup: 'alt',             // off | alt | dblclick
@@ -91,20 +102,46 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
 
   const hasChrome = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
 
+  /* После обновления расширения (⟳) старые скрипты на открытой странице теряют связь с ним:
+     любой вызов chrome.* падает с «Extension context invalidated». Тогда тихо выключаемся
+     и один раз просим обновить страницу. */
+  SL.alive = function () { try { return !!(chrome.runtime && chrome.runtime.id); } catch (e) { return false; } };
+  const deadCbs = [];
+  SL.whenDead = function (cb) { if (SL._dead) cb(); else deadCbs.push(cb); };
+  SL.checkAlive = function () {
+    if (SL._dead) return false;
+    if (!hasChrome || SL.alive()) return true;
+    SL._dead = true;
+    deadCbs.splice(0).forEach(cb => { try { cb(); } catch (e) {} });
+    return false;
+  };
+  const isDeadErr = (e) => /context invalidated/i.test(String(e && e.message || e));
+  const hang = () => new Promise(() => {});   // мёртвый скрипт просто замолкает, без ошибок в консоли
+
   SL.settings = Object.assign({}, SL.DEFAULTS);
   const settingsListeners = [];
   SL.loadSettings = async function () {
     if (!hasChrome) return SL.settings;
-    const r = await chrome.storage.local.get('sl_settings');
+    if (!SL.checkAlive()) return hang();
+    let r;
+    try { r = await chrome.storage.local.get('sl_settings'); } catch (e) { if (isDeadErr(e)) { SL.checkAlive(); return hang(); } throw e; }
     SL.settings = Object.assign({}, SL.DEFAULTS, r.sl_settings || {});
     SL.settings.reviewModes = Object.assign({}, SL.DEFAULTS.reviewModes, (r.sl_settings || {}).reviewModes || {});
     return SL.settings;
   };
+  let saveChain = Promise.resolve();
   SL.saveSettings = async function (patch) {
     Object.assign(SL.settings, patch);
     if (!hasChrome) return;
-    const r = await chrome.storage.local.get('sl_settings');
-    await chrome.storage.local.set({ sl_settings: Object.assign({}, r.sl_settings || {}, patch) });
+    if (!SL.checkAlive()) return hang();
+    // записи по очереди: два быстрых сохранения подряд не должны затирать друг друга
+    const run = async () => {
+      const r = await chrome.storage.local.get('sl_settings');
+      await chrome.storage.local.set({ sl_settings: Object.assign({}, r.sl_settings || {}, patch) });
+    };
+    const p = saveChain.then(run, run);
+    saveChain = p.catch(() => {});
+    try { await p; } catch (e) { if (isDeadErr(e)) { SL.checkAlive(); return hang(); } throw e; }
   };
   SL.onSettings = function (cb) { settingsListeners.push(cb); };
 
@@ -116,7 +153,9 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
   const vocabListeners = [];
   SL.loadVocab = async function () {
     if (!hasChrome) return;
-    const r = await chrome.storage.local.get(['sl_words', 'sl_phrases']);
+    if (!SL.checkAlive()) return hang();
+    let r;
+    try { r = await chrome.storage.local.get(['sl_words', 'sl_phrases']); } catch (e) { if (isDeadErr(e)) { SL.checkAlive(); return hang(); } throw e; }
     SL.words = r.sl_words || {};
     SL.phrases = r.sl_phrases || {};
   };
@@ -139,15 +178,16 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
   }
 
   SL.send = function (type, data) {
+    if (hasChrome && !SL.checkAlive()) return hang();
     return new Promise((resolve, reject) => {
       try {
         chrome.runtime.sendMessage(Object.assign({ type }, data || {}), (resp) => {
           const err = chrome.runtime.lastError;
-          if (err) return reject(new Error(err.message));
+          if (err) { if (isDeadErr(err)) { SL.checkAlive(); return; } return reject(new Error(err.message)); }
           if (resp && resp.error) return reject(new Error(resp.error));
           resolve(resp ? resp.result : undefined);
         });
-      } catch (e) { reject(e); }
+      } catch (e) { if (isDeadErr(e)) { SL.checkAlive(); return; } reject(e); }
     });
   };
 
@@ -185,7 +225,18 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
 
   const KEEP_ING = new Set(['evening', 'morning', 'during', 'interesting', 'according', 'nothing', 'something', 'anything', 'everything', 'thing', 'king', 'ring', 'bring', 'spring', 'string', 'swing', 'wing', 'ceiling', 'wedding', 'pudding', 'darling', 'sibling', 'lightning', 'offspring', 'awning', 'herring', 'inning', 'amazing', 'boring']);
 
+  // лемма считается часто (каждое слово каждой реплики) — запоминаем результат
+  const lemmaMemo = new Map();
   SL.lemma = function (word) {
+    const key = String(word || '');
+    let r = lemmaMemo.get(key);
+    if (r !== undefined) return r;
+    r = lemmaRaw(key);
+    if (lemmaMemo.size > 30000) lemmaMemo.clear();
+    lemmaMemo.set(key, r);
+    return r;
+  };
+  function lemmaRaw(word) {
     let w = String(word || '').toLowerCase().replace(/[’‘`]/g, "'").trim();
     if (!w) return w;
     if (KEEP_CONTRACTIONS.has(w)) return w;
@@ -247,9 +298,10 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
     }
     // words like "news", "series", "always", "during", "nothing", "something", "morning"
     if (wr && /ing$/.test(w) && wr < 3000 && /(thing|ning|ring|ding|ling)$/.test(w) && f.get(best) > wr) return w;
-    if (wr && /s$/.test(w) && ['news', 'series', 'always', 'perhaps', 'sometimes', 'besides', 'towards', 'afterwards', 'species', 'politics', 'physics', 'mathematics', 'economics', 'thanks', 'glasses', 'clothes', 'pants', 'jeans', 'scissors', 'headquarters', 'means', 'whereas', 'yes', 'this', 'his', 'its', 'us', 'was', 'has', 'is', 'as', 'does', 'goes'].includes(w)) return w;
+    if (wr && /s$/.test(w) && KEEP_S.has(w)) return w;
     return best;
-  };
+  }
+  const KEEP_S = new Set(['news', 'series', 'always', 'perhaps', 'sometimes', 'besides', 'towards', 'afterwards', 'species', 'politics', 'physics', 'mathematics', 'economics', 'thanks', 'glasses', 'clothes', 'pants', 'jeans', 'scissors', 'headquarters', 'means', 'whereas', 'yes', 'this', 'his', 'its', 'us', 'was', 'has', 'is', 'as', 'does', 'goes']);
 
   SL.rank = function (word) {
     const f = freq();
@@ -522,13 +574,49 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
     if (!src) return '';
     if (src.type === 'youtube' && src.videoId) return 'https://www.youtube.com/watch?v=' + src.videoId + (src.time ? '&t=' + Math.floor(src.time) + 's' : '');
     if (src.type === 'netflix' && src.movieId) return 'https://www.netflix.com/watch/' + src.movieId + (src.time ? '?t=' + Math.floor(src.time) : '');
-    return src.url || '';
+    return /^https?:\/\//i.test(src.url || '') ? src.url : '';
   };
+  /* Сколько в реплике слов, которые ещё не знаешь (учишь, новые, рекомендуемые, редкие из словаря) */
+  SL.hardCount = function (text) {
+    let n = 0;
+    for (const tk of parsed(String(text || '')).toks) {
+      if (tk.t !== 'w') continue;
+      const c = SL.classify(tk.text, tk.sentStart);
+      if (c.status === 'learning' || c.status === 'unknown' || c.status === 'suggested' || (c.status === 'rare' && c.rank)) n++;
+    }
+    return n;
+  };
+  // разбор реплики на слова и поиск выражений не зависят от словаря — кэшируем по тексту
+  const parseMemo = new Map();
+  function parsed(text) {
+    let r = parseMemo.get(text);
+    if (r) return r;
+    const toks = SL.tokenize(text);
+    r = { toks, xs: SL.findExpr ? SL.findExpr(toks) : [] };
+    if (parseMemo.size > 6000) parseMemo.clear();
+    parseMemo.set(text, r);
+    return r;
+  }
+  let savedSrc = null, savedSet = new Set();
+  function savedPhrases() {
+    if (savedSrc !== SL.phrases) { savedSrc = SL.phrases; savedSet = new Set(Object.values(SL.phrases || {}).map(p => String(p.text || '').toLowerCase())); }
+    return savedSet;
+  }
   SL.renderTokensHTML = function (text, opts) {
     opts = opts || {};
-    const toks = SL.tokenize(text);
+    const pr = parsed(String(text || ''));
+    const toks = pr.toks;
+    const xs = (opts.expr !== false && SL.settings.showExpr !== false) ? pr.xs : [];
+    const xOpen = new Map(), xClose = new Set();
+    if (xs.length) {
+      const saved = savedPhrases();
+      xs.forEach(x => { xOpen.set(x.a, { x, saved: saved.has(x.canon.toLowerCase()) }); xClose.add(x.b); });
+    }
     let html = '';
-    for (const tk of toks) {
+    for (let ti = 0; ti < toks.length; ti++) {
+      const tk = toks[ti];
+      const xo = xOpen.get(ti);
+      if (xo) html += `<span class="sl-xp${xo.saved ? ' sl-xpsaved' : ''}" data-x="${SL.esc(xo.x.canon)}" data-g="${SL.esc(xo.x.gloss)}">`;
       if (tk.t === 'w') {
         const c = SL.classify(tk.text, tk.sentStart);
         let style = '';
@@ -536,6 +624,7 @@ var SL = (typeof SL !== 'undefined') ? SL : {};
         html += `<span class="${SL.statusClass(c)}" data-w="${SL.esc(tk.text)}"${style}>${SL.esc(tk.text)}</span>`;
       } else if (tk.t === 'n') html += `<span class="sl-n">${SL.esc(tk.text)}</span>`;
       else html += SL.esc(tk.text).replace(/\n/g, opts.br === false ? ' ' : '<br>');
+      if (xClose.has(ti)) html += '</span>';
     }
     return html;
   };

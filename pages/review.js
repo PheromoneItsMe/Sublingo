@@ -63,16 +63,20 @@
 
   function pickMode(item) {
     const m = S().reviewModes;
-    const ctx = item.kind === 'word' ? ((item.e.contexts || []).find(c => new RegExp('(^|[^A-Za-z])' + esc(item.e.word || item.e.lemma), 'i').test(c.text)) || (item.e.contexts || [])[0]) : null;
+    const cs = item.kind === 'word' ? (item.e.contexts || []) : [];
+    const hasW = (c) => new RegExp('(^|[^A-Za-z])' + esc(item.e.word || item.e.lemma), 'i').test(c.text);
+    // контекст с настоящим голосом — в приоритете
+    const ctx = item.kind === 'word' ? (cs.find(c => c.media && hasW(c)) || cs.find(hasW) || cs[0]) : null;
     const opts = [];
     if (item.kind === 'word') {
       if (m.recall) opts.push('recall');
       if (m.cloze && ctx && clozeable(ctx.text, item.e)) opts.push('cloze');
-      if (m.listen && ctx) opts.push('listen');
+      // аудирование без настоящего голоса имеет смысл, только если синтетический голос не выключен
+      if (m.listen && ctx && (ctx.media || SL.settings.ttsMode !== 'off')) opts.push('listen');
       if (m.reverse && item.e.translation) opts.push('reverse');
     } else {
       if (m.recall || m.cloze) opts.push('recall');
-      if (m.listen) opts.push('listen');
+      if (m.listen && (item.e.media || SL.settings.ttsMode !== 'off')) opts.push('listen');
       if (m.reverse && item.e.translation) opts.push('reverse');
     }
     if (!opts.length) opts.push('recall');
@@ -184,15 +188,31 @@
     $('card').innerHTML = html;
     const src = card.kind === 'word' ? (c && c.source) : e.source;
     if (src && SL.sourceLink(src)) $('card').insertAdjacentHTML('beforeend', `<div class="src"><a href="${SL.esc(SL.sourceLink(src))}" target="_blank">↗ ${SL.esc((src.title || src.url || '').slice(0, 80))}${src.time ? ' · ' + SL.fmtTime(src.time) : ''}</a></div>`);
-    if (card.mode === 'listen') speakCtx();
+    // голос актёра и кадр из видео, если сохранены
+    card._audio = null;
+    const mid = card.kind === 'phrase' ? e.media : (c && c.media);
+    const thisCard = card;
+    if (mid) {
+      const m = await SL.media.get(mid).catch(() => null);
+      if (card !== thisCard) return;
+      if (m && m.image && card.mode !== 'listen') $('card').insertAdjacentHTML('afterbegin', `<img class="frame" src="${SL.esc(m.image)}" alt="">`);
+      if (m && m.audio) { card._audio = m.audio; const h = $('card').querySelector('.mode span'); if (h) h.insertAdjacentHTML('beforeend', ' · 🎬 голос из видео'); }
+    }
+    if (card.mode === 'listen') speakCtx(0, true);
     const inp = $('cin');
     if (inp) { inp.focus(); inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); reveal(); } }); }
     ensureTranslation(card);
   }
 
-  function speakCtx(rate) {
+  let player = null;
+  function playClip(rate) {
+    if (!card || !card._audio) return false;
+    try { if (player) player.pause(); player = new Audio(card._audio); player.playbackRate = rate || 1; player.preservesPitch = true; player.play().catch(() => {}); return true; } catch (e) { return false; }
+  }
+  function speakCtx(rate, auto) {
+    if (playClip(rate ? 0.75 : 1)) return;
     const txt = card.kind === 'phrase' ? card.e.text : (card.ctx ? card.ctx.text : card.e.lemma);
-    SL.speak(txt, rate ? { rate } : undefined);
+    SL.speak(txt, Object.assign(rate ? { rate } : {}, auto ? { auto: true } : {}));
   }
 
   async function reveal() {
@@ -220,15 +240,15 @@
     if (card.kind === 'word' && c && c.translation && card.mode !== 'cloze') ans += `<div class="ctr">${SL.esc(c.translation)}</div>`;
     if (card.kind === 'phrase' && e.context && e.context !== e.text) ans += `<div class="ctr">${SL.esc(e.context)}</div>`;
     if (e.note) ans += `<div class="ctr"><i>${SL.esc(e.note)}</i></div>`;
-    ans += `<div style="margin-top:8px"><button class="btn sm" data-a="speak">🔊</button> ${card.kind === 'word' ? '<button class="btn sm" data-a="dict">📖 словарь</button> <button class="btn sm" data-a="known">✓ уже знаю</button>' : ''}</div>`;
+    ans += `<div style="margin-top:8px"><button class="btn sm" data-a="speak">🔊</button> ${card._audio ? '<button class="btn sm" data-a="speakCtx">🎬 из видео</button> ' : ''}${card.kind === 'word' ? '<button class="btn sm" data-a="dict">📖 словарь</button> <button class="btn sm" data-a="known">✓ уже знаю</button>' : ''}</div>`;
     $('ansBox').innerHTML = `<div class="ans">${ans}</div>`;
     const s = e.srs || SL.srs.init();
     $('gradeBox').innerHTML = `<div class="grades">
       ${[['Снова', 0], ['Трудно', 1], ['Хорошо', 2], ['Легко', 3]].map(([n, g]) => `<button class="btn g${g} ${g === suggest && inp ? 'primary' : ''}" data-g="${g}">${n}<small>${SL.srs.preview(s, g)}</small></button>`).join('')}</div>`;
-    if (card.mode !== 'listen') speakWord();
+    if (card.mode !== 'listen') speakWord(true);
   }
 
-  function speakWord() { SL.speak(card.kind === 'phrase' ? card.e.text : card.e.lemma); }
+  function speakWord(auto) { if (card.kind === 'phrase' && playClip()) return; SL.speak(card.kind === 'phrase' ? card.e.text : card.e.lemma, auto ? { auto: true } : undefined); }
 
   async function grade(g) {
     if (!revealed) return;
@@ -250,7 +270,7 @@
       <div class="grades" style="grid-template-columns:repeat(3,1fr)"><button class="btn primary" data-s="learning">★ Учить</button><button class="btn" data-s="known">✓ Уже знаю</button><button class="btn" data-s="skip">Пропустить</button></div>`;
     const tr = await ensureTranslation(card);
     const el = $('sgtr'); if (el) el.textContent = tr || '';
-    SL.speak(w);
+    SL.speak(w, { auto: true });
   }
 
   $('card').addEventListener('click', async (ev) => {

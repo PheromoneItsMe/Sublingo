@@ -22,6 +22,7 @@
     <label class="opt"><span>Размывать перевод</span><input type="checkbox" id="blurTranslation"></label>
     <label class="opt"><span>Пауза при наведении на субтитры</span><input type="checkbox" id="pauseOnHover"></label>
     <label class="opt"><span>Панель субтитров</span><input type="checkbox" id="panelOpen"></label>
+    <label class="opt"><span>Голос робота</span><select id="ttsMode" style="width:150px"><option value="manual">Только по 🔊</option><option value="on">Сам озвучивает</option><option value="off">Выключен</option></select></label>
     <div class="grid">
       <button class="btn primary" data-open="review.html">🧠 Повторение<div class="due" id="due" style="color:#3a1a00"></div></button>
       <button class="btn" data-open="vocab.html">📚 Мои слова<div class="due" id="cnt"></div></button>
@@ -29,7 +30,7 @@
       <button class="btn" data-open="player.html">🎬 Видеофайл<div class="due">свой фильм + .srt</div></button>
     </div>
     <button class="btn" id="genericOn" style="width:100%;margin-top:8px">🎞 Включить субтитры на видео в этой вкладке</button>
-    <div class="row" style="margin-top:12px"><button class="btn sm" data-open="options.html">⚙ Все настройки</button><span class="grow"></span><span class="mut">Alt+клик — перевод на любом сайте</span></div>
+    <div class="row" style="margin-top:12px"><button class="btn sm" data-open="options.html">⚙ Все настройки</button><button class="btn sm" data-open="stats.html">📊 Статистика</button><span class="grow"></span><span class="mut">Alt+клик — перевод на любом сайте</span></div>
   </div>
 <script src="../common/lib.js"></script>
 <script src="../common/srs.js"></script>
